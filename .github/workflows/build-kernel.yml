@@ -52,6 +52,8 @@ jobs:
         fi
         make -j$(nproc) O=out ARCH=arm64 "$DEFCONFIG"
         echo "CONFIG_CC_WERROR=n" >> out/.config
+        # clang in this environment lacks stack-protector runtime support
+        ./scripts/config --file out/.config --disable CONFIG_CC_STACKPROTECTOR_STRONG --enable CONFIG_CC_STACKPROTECTOR_NONE 2>/dev/null || true
         make O=out ARCH=arm64 olddefconfig
         make -j$(nproc) O=out ARCH=arm64 CC=clang CROSS_COMPILE=aarch64-linux-gnu- LD=ld.lld
 
