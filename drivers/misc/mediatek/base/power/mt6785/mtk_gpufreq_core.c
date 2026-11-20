@@ -3040,7 +3040,7 @@ static void __mt_gpufreq_setup_opp_table(
 	if (g_segment_id == MT6785U_SEGMENT)
 		g_segment_max_opp_idx = 0;
 	else if (g_segment_id == MT6785T_SEGMENT)
-		g_segment_max_opp_idx = 15;
+		g_segment_max_opp_idx = 12;	/* begonia: 850 MHz GPU overclock */
 	else if (g_segment_id == MT6785_SEGMENT)
 		g_segment_max_opp_idx = 21;
 	else if (g_segment_id == MT6783_SEGMENT)

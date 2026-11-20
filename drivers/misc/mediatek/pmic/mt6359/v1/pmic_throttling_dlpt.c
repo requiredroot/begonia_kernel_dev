@@ -102,7 +102,7 @@ void lbat_test_callback(unsigned int thd)
 
 static struct lbat_user lbat_pt;
 int g_low_battery_level;
-int g_low_battery_stop;
+int g_low_battery_stop = 1;	/* begonia: worn-battery freeze */
 /* give one change to ignore DLPT power off. battery voltage
  * may return to 3.25 or higher because loading become light.
  */
