@@ -55,7 +55,7 @@ jobs:
         # clang in this environment lacks stack-protector runtime support
         ./scripts/config --file out/.config --disable CONFIG_CC_STACKPROTECTOR_STRONG --enable CONFIG_CC_STACKPROTECTOR_NONE 2>/dev/null || true
         make O=out ARCH=arm64 olddefconfig
-        make -j$(nproc) O=out ARCH=arm64 CC=clang CROSS_COMPILE=aarch64-linux-gnu- LD=ld.lld
+        make -j$(nproc) O=out ARCH=arm64 CC=clang CLANG_TRIPLE=aarch64-linux-gnu- CROSS_COMPILE=aarch64-linux-gnu- LD=ld.lld AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip CFLAGS_KERNEL="-fintegrated-as" CFLAGS_MODULE="-fintegrated-as"
 
     - name: Verify APatch kallsyms requirements
       run: |
