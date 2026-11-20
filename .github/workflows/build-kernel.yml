@@ -1,0 +1,85 @@
+name: Build Kernel
+
+on:
+  push:
+    branches: [Suzaku-bka, ksu, ksu-noc]
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to build'
+        required: false
+        default: ''
+        type: string
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build begonia kernel
+    runs-on: ubuntu-22.04
+    env:
+      ARCH: arm64
+      KERNEL_FILE: Image.gz-dtb
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.inputs.branch || github.ref_name }}
+
+    - name: Setup build environment
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y git ccache automake flex lzop bison gperf build-essential zip curl zlib1g-dev g++-multilib libxml2-utils bzip2 libbz2-dev libbz2-1.0 libghc-bzlib-dev squashfs-tools pngcrush schedtool dpkg-dev liblz4-tool make optipng maven libssl-dev pwgen libswitch-perl policycoreutils minicom libxml-sax-base-perl libxml-simple-perl bc libc6-dev-i386 libncurses6 libx11-dev lib32z-dev libgl1-mesa-dev xsltproc unzip device-tree-compiler python3
+        mkdir -p $GITHUB_WORKSPACE/kernel_workspace
+
+    - name: Download Clang Toolchain
+      run: |
+        mkdir -p $GITHUB_WORKSPACE/clang
+        wget -q https://github.com/ZyCromerZ/Clang/releases/download/22.0.0git-20250928-release/Clang-22.0.0git-20250928.tar.gz
+        tar -C $GITHUB_WORKSPACE/clang/ -zxvf Clang-22.0.0git-20250928.tar.gz
+
+    - name: Configure and build
+      run: |
+        cd $GITHUB_WORKSPACE
+        export PATH=$GITHUB_WORKSPACE/clang/bin:$PATH
+        export ARCH=arm64
+        export SUBARCH=arm64
+        DEFCONFIG="begonia_user_defconfig"
+        if [ "${{ github.ref_name }}" = "Suzaku-bka" ]; then
+          DEFCONFIG="begonia_apatch_defconfig"
+        fi
+        make -j$(nproc) O=out ARCH=arm64 "$DEFCONFIG"
+        echo "CONFIG_CC_WERROR=n" >> out/.config
+        make O=out ARCH=arm64 olddefconfig
+        make -j$(nproc) O=out ARCH=arm64 CC=clang CROSS_COMPILE=aarch64-linux-gnu- LD=ld.lld
+
+    - name: Verify APatch kallsyms requirements
+      run: |
+        if ! grep -q '^CONFIG_KALLSYMS_ALL=y$' out/.config; then
+          echo "::error::CONFIG_KALLSYMS_ALL is not set to y - APatch/KernelPatch requires it"
+          exit 1
+        fi
+        echo "CONFIG_KALLSYMS_ALL=y confirmed"
+        grep -E '^#? ?CONFIG_KALLSYMS' out/.config || true
+
+    - name: Check kernel output
+      run: |
+        test -f out/arch/arm64/boot/Image.gz-dtb && echo "OK"
+
+    - name: Make AnyKernel3
+      run: |
+        cd $GITHUB_WORKSPACE
+        git clone https://github.com/osm0sis/AnyKernel3
+        sed -i 's/do.devicecheck=1/do.devicecheck=0/g' AnyKernel3/anykernel.sh
+        sed -i 's!block=/dev/block/by-name/boot;!block=auto;!g' AnyKernel3/anykernel.sh
+        sed -i 's/is_slot_device=0;/is_slot_device=auto;/g' AnyKernel3/anykernel.sh
+        cp out/arch/arm64/boot/Image.gz-dtb AnyKernel3/
+        rm -rf AnyKernel3/.git* AnyKernel3/README.md
+
+    - name: Upload AnyKernel3
+      uses: actions/upload-artifact@v4
+      with:
+        name: AnyKernel3-${{ github.ref_name }}
+        path: AnyKernel3/*
